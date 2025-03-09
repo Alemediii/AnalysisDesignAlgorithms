@@ -1,0 +1,186 @@
+---
+title: "Diophantine Approximation with Farey Sequences"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output:
+  bookdown::pdf_document2:
+    fig_caption: yes
+    toc: false
+    extra_dependencies: ["placeins", "subfig"]
+papersize: a4
+fontsize: 11pt
+geometry:
+  - top=1in
+  - bottom=1in
+  - left=1.5in
+  - right=1.5in
+params:
+  file: ["Mediant-Approximation-stats.txt"]
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Objectives
+
+Describe the objective(s) of the project and how these will be accomplished. You must give the necessary context to make the document self-contained, i.e., explain the problem or domain of application considered, the algorithm(s) that will be analyzed, which particular algorithmic issue(s) will be subject to scrutiny, etc.
+
+# Experimental Setup
+
+Describe the configuration used in the experiments. This implies the following: (1) indicate what kind of experiments will be conducted (i.e., indicate in which way the algorithm will be run and what will be measured) and what will be the particular parameters that will be used in those experiments (i.e., their numerical values); (2) provide a description of the computational environment in which the experiments are run (see Table \ref{tab:conf}).
+
+\begin{table}[!h]
+\caption{Computational environment considered.}
+\begin{tabular}{lp{0.8\linewidth}}
+\hline
+CPU       & Write here your Processor specs, RAM \\
+OS        & Write here your Operating system name and version\\
+Java      & Write here your Java version\\
+\hline
+\end{tabular}
+\label{tab:conf}
+\end{table}
+
+
+# Empirical Results
+
+A summary of the experimental results is provided in Tables 2-\@ref(tab:data-summary) in the Appendix, along with the statistical fitting of the data to different growth models. 
+
+Describe the results, in particular Figure \@ref(fig:time).
+
+
+```{r load-data}
+# Reading the data
+if (file.exists("rawdata.rds")) {
+  rawdata <- readRDS("rawdata.rds") 
+} else {
+  rawdata = read.table(params$file)
+  saveRDS(rawdata, file="rawdata.rds")
+}
+
+# Compute basic statistics 
+dataframe <- data.frame(
+  "precision" = 0.5*10^(-rawdata[,1]),
+  "time" = apply(t(rawdata)[-1,], 2, median),
+  "upp" = apply(t(rawdata)[-1,], 2, quantile, prob = .75), # the error bars span the 2nd and 3rd quartiles 
+  "low" = apply(t(rawdata)[-1,], 2, quantile, prob = .25)
+)
+
+
+# Power-law fit
+
+n <- dim(rawdata)[1];
+xx <- 0.5*10^(-seq(min(rawdata[,1]), max(rawdata[,1]), by = .01))
+b0 <- -log(dataframe$time[n]/dataframe$time[n-1])/log(dataframe$precision[n]/dataframe$precision[n-1])
+a0 <- dataframe$time[n]/((1/dataframe$precision[n])^b0)
+datafit1 <- nls(time ~ a * (1/precision)^b, data=dataframe, start = list(a = a0, b = b0))
+fitfun1 <- function(x) predict(datafit1, newdata=data.frame(precision=x))
+pwrdata <- data.frame(
+  "precision" = xx,
+  "ptime"  = fitfun1(xx)
+)
+
+
+# Log fit
+
+a0 <- dataframe$time[n]/log(1/dataframe$precision[n])
+datafit2 <- nls(time ~ a * log(1/precision), data=dataframe, start = list(a = a0))
+fitfun2 <- function(x) predict(datafit2, newdata=data.frame(precision=x))
+logdata <- data.frame(
+  "precision" = xx,
+  "ptime"  = fitfun2(xx)
+)
+
+```
+
+
+```{r time, fig.cap="Time required for finding the rational approximation of a number for increasing precision", fig.align = "center"}
+# Graphical representation
+
+library(ggplot2)
+library(scales)
+library(latex2exp)
+lablog <- paste(format(summary(datafit2)$coefficients[1], scientific=TRUE, digits=3), "$\\log(1/\\epsilon)$")
+labpwr <- paste(format(summary(datafit1)$coefficients[1], scientific=TRUE, digits=3), "$(1/\\epsilon)^{", 
+                 format(summary(datafit1)$coefficients[2], scientific=FALSE, digits=3), "}$")
+labs <- lapply (c("data", lablog, labpwr), TeX)
+
+col = c("data" = "blue", "logarithmic fit" = "black", "power-law fit" = "red")
+figure <- ggplot(data=dataframe, aes(x=precision, y=time)) + 
+  geom_line(data = pwrdata, aes(x=precision, y=ptime, colour = "power-law fit")) +
+  geom_line(data = logdata, aes(x=precision, y=ptime, colour = "logarithmic fit")) +
+  geom_errorbar(aes(ymin=low, ymax=upp, colour="data"), width=.2) +
+  geom_point(shape=21, size=3, aes(colour="data"),  fill="white") +
+  scale_colour_manual(name = "", values = col, labels = labs) +
+  guides(color = guide_legend(override.aes = list(shape = c(1, NA, NA), linetype = c("blank", "solid", "solid")))) +
+  scale_y_continuous(name = "time (s)") +
+  scale_x_continuous(name = TeX("precision ($\\epsilon$)"),
+                     trans = 'log10',
+                     breaks = trans_breaks('log10', n = dim(rawdata)[1]+1, function(x) 10^x),
+                     labels = trans_format('log10', math_format(10^.x)))+
+  theme_bw() + 
+  theme(legend.justification = c(0, 1), 
+        legend.position = "inside", 
+        legend.position.inside = c(0.6, .99), 
+        legend.box.margin=margin(c(5,5,5,5))) 
+
+show(figure)
+
+```
+
+
+
+# Discussion
+
+Provide your interpretation of the results: discuss whether the results match the theoretical predictions, whether some algorithm is better in practice than others, etc.
+
+\FloatBarrier
+
+\setcounter{section}{0}
+\renewcommand{\thesection}{\Alph{section}}
+
+# Appendix
+
+## Data Summary 
+
+```{r data-summary}
+library(knitr)
+library(kableExtra)
+
+table_dataframe <- data.frame(
+    "precision" = format(dataframe$precision, scientific=TRUE, digits = 3),
+    "q1" = format(dataframe$low, scientific=TRUE, digits = 3),
+    "q2" = format(dataframe$time, scientific=TRUE, digits = 3),
+    "q3" = format(dataframe$upp, scientific=TRUE, digits = 3)
+  )
+
+kable(table_dataframe, "pipe",
+      longtable = TRUE,
+      format = "latex",
+      linesep = "",
+      col.names = c("$\\epsilon$", "time (Q1)", "time (Q2)", "time (Q3)"),
+      escape = FALSE,
+      align = "c",
+      caption = "Summary of the experimental results. Q1, Q2 and Q3 represent the 1st, 2nd (i.e., median) and 3rd quartile respectively. All times are in seconds.") %>%
+  row_spec(0,bold=TRUE) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+## Model Fitting 
+### Power-Law Fit
+
+```{r}
+cat("Power law fit\n--------------------\n")
+show(summary(datafit1))
+```
+
+### Logarithmic Fit
+```{r}
+cat("Logarithmic fit\n------------------\n")
+show(summary(datafit2))
+```
+
+  
+
+

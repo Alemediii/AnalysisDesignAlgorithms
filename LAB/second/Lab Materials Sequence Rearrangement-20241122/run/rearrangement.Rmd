@@ -1,0 +1,207 @@
+---
+title: "DNA Rearrangement: PrefixSort and Greedy Approaches"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output:
+  bookdown::pdf_document2:
+    fig_caption: yes
+    toc: false
+    extra_dependencies: ["placeins", "subfig"]
+papersize: a4
+fontsize: 11pt
+geometry:
+  - top=1in
+  - bottom=1in
+  - left=1.5in
+  - right=1.5in
+params:
+  algorithms: ["PrefixSort", "BreakpointReversal"]
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Objectives
+
+Describe the objective(s) of the project and how these will be accomplished. You must give the necessary context to make the document self-contained, i.e., explain the problem or domain of application considered, the algorithm(s) that will be analyzed, which particular algorithmic issue(s) will be subject to scrutiny, etc.
+
+# Experimental Setup
+
+Describe the configuration used in the experiments. This implies the following: (1) indicate what kind of experiments will be conducted (i.e., indicate in which way the algorithm will be run and what will be measured) and what will be the particular parameters that will be used in those experiments (i.e., their numerical values); (2) provide a description of the computational environment in which the experiments are run (see Table \ref{tab:conf}).
+
+\begin{table}[!h]
+\caption{Computational environment considered.}
+\begin{tabular}{lp{0.8\linewidth}}
+\hline
+CPU       & Write here your Processor specs, RAM \\
+OS        & Write here your Operating system name and version\\
+Java      & Write here your Java version\\
+\hline
+\end{tabular}
+\label{tab:conf}
+\end{table}
+
+
+# Empirical Results
+
+A summary of the experimental results is provided in Tables \ref{tab:PrefixSort} and \ref{tab:BreakpointReversal} in the Appendix, along with the statistical fitting of the data to different growth models. 
+
+Describe the results, in particular Figure \@ref(fig:ops).
+
+
+```{r load-data}
+load_data <- function  (filename) {
+  # Reading the data
+  rawdata = read.table(paste0(filename, "rearrangement.txt"))
+  
+  # Compute basic statistics 
+  stderr <- function(x) sd(x)/sqrt(length(x))
+  m <- dim(rawdata)[1];
+  n <- dim(rawdata)[2];
+  even_ind <- seq(2, n, 2)
+  dataframe <- data.frame(
+    "length" = rawdata[,1],
+    "ops" = apply(t(rawdata)[even_ind,], 2, mean)/rawdata[,1],
+    "opserr" = apply(t(rawdata)[even_ind,], 2, stderr)/rawdata[,1]
+  )
+  
+  # Statistical model: 1 - power_law
+  
+  xx <- seq(min(rawdata[,1]), max(rawdata[,1]), by = .1)
+  b0 <- log((1-dataframe$ops[m])/(1-dataframe$ops[m-1]))/log(dataframe$length[m]/dataframe$length[m-1])
+  a0 <- (1-dataframe$ops[m])/(dataframe$length[m]^b0)
+  datafit <- nls((1-ops) ~ a * length ^ b, data=dataframe, start = list(a = a0, b = b0))
+  fitfun <- function(x) predict(datafit, newdata=data.frame(length=x))
+  pwrdata <- data.frame(
+    "length" = xx,
+    "ops"  = 1-fitfun(xx)
+  )
+  
+  datalist <-list(data = dataframe, fit = datafit, f = fitfun, predict = pwrdata)
+
+}
+
+algorithm_data <- list()
+for (alg in params$algorithms) {
+    algorithm_data[[alg]] <- load_data(alg)
+}
+
+```
+
+
+```{r ops, fig.cap="Reversals (normalized per number of elements) for increasing sequence length", fig.align = "center"}
+
+# Graphical representation
+
+library(ggplot2)
+library(scales)
+library(ggnewscale)
+library(latex2exp)
+
+
+data <- data.frame(matrix(ncol=4, nrow=0))
+colnames(data) = c("length", "ops", "opserr", "algorithm")
+predict <- data.frame(matrix(ncol=3, nrow=0))
+colnames(data) = c("length", "ops", "algorithm")
+
+labs <- c()
+for (alg in params$algorithms) {
+  labpwr <- paste("$1 - \\left(",
+                  format(summary(algorithm_data[[alg]]$fit)$coefficients[1], scientific=FALSE, digits=3),
+                  "\\lambda^{",
+                  format(summary(algorithm_data[[alg]]$fit)$coefficients[2], scientific=FALSE, digits=3),
+                  "}\\right)$")
+  labs <- c(labpwr, labs)
+  tmp <- algorithm_data[[alg]]$data
+  tmp$algorithm <- alg 
+  data <- rbind(data, tmp)
+  tmp <- algorithm_data[[alg]]$predict
+  tmp$algorithm <- alg 
+  predict <- rbind(predict, tmp)
+}
+labs <- lapply(labs, TeX)
+
+figure <- ggplot(data = data, aes(x = length, y = ops, group = algorithm)) + 
+    geom_line(data = predict, aes(x=length, y=ops, colour = algorithm)) +
+    scale_colour_manual(name = "Statistical fit", values = c("blue", "red"), labels = labs) +
+    new_scale_color() + 
+    geom_errorbar(aes(ymin=ops-opserr, ymax=ops+opserr, colour = algorithm), width=.2) +
+    geom_point(shape=21, size=3, fill="white",mapping = aes(colour = algorithm)) +
+    scale_colour_manual(name = "Data", values = c("blue", "red")) +
+    guides(color = guide_legend(override.aes = list(shape = c(1, 1), linetype = c("blank", "blank")))) +
+    scale_y_continuous(name = "operations / length") +
+    scale_x_continuous(name = TeX("permutation length $\\lambda$"))+
+    theme_bw() + 
+    theme(legend.justification = c(0, 1), 
+        legend.position = "inside", 
+        legend.position.inside = c(0.7, .5), 
+        legend.box.margin=margin(c(5,5,5,5))) 
+
+show(figure)
+
+```
+
+
+
+# Discussion
+
+Provide your interpretation of the results: discuss whether the results match the theoretical predictions, whether some algorithm is better in practice than others, etc.
+
+\FloatBarrier
+
+\setcounter{section}{0}
+\renewcommand{\thesection}{\Alph{section}}
+
+# Appendix
+
+## Data Summary 
+
+```{r data-summary}
+library(knitr)
+library(kableExtra)
+
+create_table <- function (dataframe, algorithm) {
+  table_dataframe <- data.frame(
+    "length" = format(dataframe$length, scientific=FALSE, digits = 3),
+    "ops" =    format(dataframe$ops, scientific=FALSE, digits = 3),
+    "opserr" = format(dataframe$opserr, scientific=TRUE, digits = 3)
+  )
+  
+  kable(table_dataframe, "pipe",
+        longtable = TRUE,
+        format = "latex",
+        linesep = "",
+        col.names = c("length $\\lambda$", "operations", "std. err."),
+        escape = FALSE,
+        align = "c",
+        caption = paste0("Summary of the experimental results for ", algorithm, ". The mean and standard error are shown for each length.\\label{tab:", algorithm, "}")) %>%
+    row_spec(0,bold=TRUE) %>%
+    kable_styling(latex_options = c("striped", "hold_position"))
+}
+
+table <- list()
+for (alg in params$algorithms) {
+  table[[alg]] <- create_table(algorithm_data[[alg]]$data, alg)
+}
+```
+
+```{r tables, results = 'asis'}
+for (alg in params$algorithms) {
+  show(table[[alg]])
+}
+```
+
+## Model Fitting 
+
+```{r model}
+for (alg in params$algorithms) {
+  cat (alg)
+  show(summary(algorithm_data[[alg]]$fit))
+}
+```
+
+
+  
+
+

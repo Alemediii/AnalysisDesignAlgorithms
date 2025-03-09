@@ -1,0 +1,16 @@
+This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2024.11.22)  22 NOV 2024 19:55
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**rearrangement.tex
+(./rearrangement.tex
+LaTeX2e <2024-11-01>
+L3 programming layer <2024-11-02>
+(c:/Users/USER/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2024/06/29 v1.4n Standard LaTeX document class
+(c:/Users/USER/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/size11.clo
+File: size11.clo 2024/06/29 v1.4n Standard LaTeX file (size option)
+
+! Fontconfig error: Cannot load default config file: No such file: (null)
+! C:/Users/USER/AppData/Roaming/TinyTeX/texmf-var/fonts/cache does not exist.
+! Kpathsea is not working.

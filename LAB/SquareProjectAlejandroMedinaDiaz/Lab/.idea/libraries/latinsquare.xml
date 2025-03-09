@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="latinsquare">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/latinsquare.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

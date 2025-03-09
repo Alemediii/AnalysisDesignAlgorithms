@@ -1,0 +1,180 @@
+---
+title: "RNA Structure Prediction: Nussinov Algorithm"
+author: "Alejandro Medina Diaz"
+date: "`25/10/2024`"
+output:
+  bookdown::pdf_document2:
+    fig_caption: yes
+    toc: false
+    extra_dependencies: ["placeins", "subfig"]
+    latex_engine: xelatex  # Change to "lualatex" if xelatex does not work
+papersize: a4
+fontsize: 11pt
+geometry: 
+  - top=1in
+  - bottom=1in
+  - left=1.5in
+  - right=1.5in
+params:
+  file: ["folding.txt"]
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Objectives
+
+The objective of this project is to predict the secondary structure of RNA molecules using the Nussinov algorithm, which is a dynamic programming approach. The project focuses on identifying stable base pair configurations that maximize the molecule’s stability by optimizing for the highest number of compatible base pairs between nucleotides. The Nussinov algorithm is particularly relevant for biological applications where understanding RNA structure helps elucidate its role in various biological functions, such as gene regulation and catalysis.
+
+Problem Context
+RNA molecules consist of a sequence of nucleotides (A, U, C, G), where certain pairs (A–U, C–G, and G–U) can bond to form stable structures. This pairing creates the RNA's secondary structure, a crucial intermediate state before it folds into its 3D tertiary form. Predicting these pairs is important because RNA’s structure is key to its function.
+
+Algorithmic Focus
+The Nussinov algorithm identifies the optimal pairing pattern by analyzing all possible base pair combinations and determining the configuration with the maximum pairings. It solves this by defining subproblems over smaller subsequences of the RNA string, storing solutions in a table to avoid redundant calculations. This approach allows it to compute solutions in 𝑂(n^3) O(n^3) time with 𝑂(𝑛^2) O(n^2) space, where 𝑛n is the sequence length.
+
+# Experimental Setup
+
+Describe the configuration used in the experiments. This implies the following: (1) indicate what kind of experiments will be conducted (i.e., indicate in which way the algorithm will be run and what will be measured) and what will be the particular parameters that will be used in those experiments (i.e., their numerical values); (2) provide a description of the computational environment in which the experiments are run (see Table \ref{tab:conf}).
+
+\begin{table}[!h]
+\caption{Computational environment considered.}
+\begin{tabular}{lp{0.8\linewidth}}
+\hline
+CPU       11th Gen Intel(R) Core(TM) i3-1115G4 @ 3.00GHz   2.90 GHz \\
+OS        Windows 11 Home version 23H2\\
+Java      Java 22.0.2 2024-07-16\\
+\hline
+\end{tabular}
+\label{tab:conf}
+\end{table}
+
+
+# Empirical Results
+
+A summary of the experimental results is provided in Tables 2-\@ref(tab:data-summary) in the Appendix, along with the statistical fitting of the data to different growth models. 
+
+Describe the results, in particular Figure \@ref(fig:time).
+The data shows a strong alignment with theoretical predictions, particularly in relation to the algorithm's cubic time complexity. The statistical fitting applied to different growth models confirms this, as the best fit was observed with a power-law relationship close to O(n^3), validating the expected behavior of the algorithm as the RNA sequence length increases.
+
+ The curve aligns with the data, especially for larger sequences, suggesting that the algorithm scales predictably in terms of time as the complexity of the input grows. The relatively small error bars on each point further support the conclusion that the variability in the algorithm's performance is minimal and that it performs consistently under the tested conditions.
+ 
+ This is generally the point with the exponential functions, of course the importance of having a good processor is there, but where it takes actual relevance is on the algorithm efficence.
+
+
+```{r load-data}
+# Reading the data
+rawdata = read.table(params$file)
+
+# Compute basic statistics 
+dataframe <- data.frame(
+  "length" = rawdata[,1],
+  "time" = apply(t(rawdata)[-1,], 2, median),
+  "upp" = apply(t(rawdata)[-1,], 2, quantile, prob = .75), # the error bars span the 2nd and 3rd quartiles 
+  "low" = apply(t(rawdata)[-1,], 2, quantile, prob = .25)
+)
+
+
+# Power-law fit
+
+n <- dim(rawdata)[1];
+xx <- seq(0, max(rawdata[,1]), by = 1)
+b0 <- log(dataframe$time[n]/dataframe$time[n-1])/log(dataframe$length[n]/dataframe$length[n-1])
+a0 <- dataframe$time[n]/(dataframe$length[n]^b0)
+datafit1 <- nls(time ~ a * length^b, data=dataframe, start = list(a = a0, b = b0))
+fitfun1 <- function(x) predict(datafit1, newdata=data.frame(length=x))
+pwrdata <- data.frame(
+  "length" = xx,
+  "ptime"  = fitfun1(xx)
+)
+
+
+
+```
+
+
+```{r time, fig.cap="Time required for finding the optimal folding for increasing RNA sequence length", fig.align = "center"}
+
+# Graphical representation
+
+library(ggplot2)
+library(scales)
+library(latex2exp)
+
+labpwr <- TeX(paste(format(summary(datafit1)$coefficients[1], scientific=TRUE, digits=3), "$\\lambda^{", 
+                 format(summary(datafit1)$coefficients[2], scientific=FALSE, digits=3), "}$"))
+labs <- c("data", labpwr)
+
+col = c("data" = "blue", "power-law fit" = "red")
+figure <- ggplot(data=dataframe, aes(x=length, y=time)) + 
+  geom_line(data = pwrdata, aes(x=length, y=ptime, colour = "power-law fit")) +
+  geom_errorbar(aes(ymin=low, ymax=upp, colour="data"), width=.2) +
+  geom_point(shape=21, size=3, aes(colour="data"),  fill="white") +
+  scale_colour_manual(name = "", values = col, labels = labs) +
+  guides(color = guide_legend(override.aes = list(shape = c(1, NA), linetype = c("blank", "solid")))) +
+  scale_y_continuous(name = "time (s)") +
+  scale_x_continuous(name = TeX("RNA sequence length $\\lambda$"))+
+  theme_bw() + 
+  theme(legend.justification = c(0, 1), 
+        legend.position = "inside", 
+        legend.position.inside = c(0.6, .99), 
+        legend.box.margin=margin(c(5,5,5,5))) 
+
+show(figure)
+
+```
+
+
+
+# Discussion
+
+The results of the experiment offer a clear validation of the Nussinov algorithm’s theoretical predictions. In the first plot, we see how the measured execution times for different RNA sequence lengths (represented by blue circles) closely follow the red curve of the power-law fit. This curve is described by the formula 
+1.97e^−9 ⋅ 𝜆^2.72, where λ represents the length of the RNA sequence. The exponent, approximately 2.72, is very close to the expected cubic time complexity of O(n^3) for the Nussinov algorithm. The fact that the red curve aligns so well with the blue data points, especially as the sequences grow longer, shows that the actual performance of the algorithm matches the theoretical expectations. Moreover, the error bars, indicating variability, are relatively small, which means the algorithm’s execution times are consistent across different runs for the same sequence length. There’s very little unpredictability in how the algorithm performs, particularly for smaller sequences.
+
+Looking at the second visualization, the scatterplot matrix offers additional insight. It confirms the strong correlation between the length of the RNA sequence and the time it takes for the algorithm to process it. Each relationship between these variables reinforces the idea that the Nussinov algorithm handles the increasing complexity of larger sequences in a predictable and controlled manner. The matrix shows that the execution time steadily increases with the sequence length, as expected, with minimal fluctuations between runs, which further underscores the stability of the algorithm’s performance.
+
+Overall, these results suggest that the Nussinov algorithm not only behaves as predicted but does so consistently. The fit between the data and the theoretical model is strong, and there are no surprises in the way the algorithm scales with sequence length. This consistency means that, while the cubic time complexity is not optimal for very large sequences, the algorithm is reliable for the lengths tested. If performance issues arise with much larger sequences, further optimizations or alternative algorithms might be considered, but for now, the Nussinov algorithm performs exactly as expected, demonstrating its effectiveness in this context.
+
+\FloatBarrier
+
+\setcounter{section}{0}
+\renewcommand{\thesection}{\Alph{section}}
+
+# Appendix
+
+## Data Summary 
+
+```{r data-summary}
+library(knitr)
+library(kableExtra)
+
+table_dataframe <- data.frame(
+    "length" = format(dataframe$length, scientific=TRUE, digits = 3),
+    "q1" = format(dataframe$low, scientific=TRUE, digits = 3),
+    "q2" = format(dataframe$time, scientific=TRUE, digits = 3),
+    "q3" = format(dataframe$upp, scientific=TRUE, digits = 3)
+  )
+
+kable(table_dataframe, "pipe",
+      longtable = TRUE,
+      format = "latex",
+      linesep = "",
+      col.names = c("length $\\lambda$", "time (Q1)", "time (Q2)", "time (Q3)"),
+      escape = FALSE,
+      align = "c",
+      caption = "Summary of the experimental results. Q1, Q2 and Q3 represent the 1st, 2nd (i.e., median) and 3rd quartile respectively. All times are in seconds.") %>%
+  row_spec(0,bold=TRUE) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+## Model Fitting 
+### Power-Law Fit
+
+```{r}
+show(summary(datafit1))
+```
+
+
+  
+
+

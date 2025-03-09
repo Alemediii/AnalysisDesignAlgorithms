@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="src" path="Lab Materials Sequence Rearrangement-20241122/src"/>
+	<classpathentry kind="lib" path="Lab Materials Sequence Rearrangement-20241122/lib/rearrangement1.6.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

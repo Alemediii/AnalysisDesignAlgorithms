@@ -1,0 +1,151 @@
+---
+title: "Analysis of the Phase Transition in the Complexity of Solving Latin Squares"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output:
+  bookdown::pdf_document2:
+    fig_caption: yes
+    toc: false
+    extra_dependencies: ["placeins"]
+papersize: a4
+fontsize: 11pt
+geometry:
+  - top=1in
+  - bottom=1in
+  - left=1in
+  - right=1in
+params:
+  filename: "stats_ls10.txt"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Objectives
+
+Describe the objective(s) of the project and how these will be accomplished. You must give the necessary context to make the document self-contained, i.e., explain the problem or domain of application considered, the algorithm(s) that will be analyzed, which particular algorithmic issue(s) will be subject to scrutiny, etc.
+
+# Experimental Setup
+
+Describe the configuration used in the experiments. This implies the following: (1) indicate what kind of experiments will be conducted (i.e., indicate in which way the algorithm will be run and what will be measured) and what will be the particular parameters that will be used in those experiments (i.e., their numerical values); (2) provide a description of the computational environment in which the experiments are run (see Table \ref{tab:conf}).
+
+\begin{table}[!h]
+\caption{Computational environment considered.}
+\begin{tabular}{lp{0.8\linewidth}}
+\hline
+CPU       & Write here your Processor specs, RAM \\
+OS        & Write here your Operating system name and version\\
+Java      & Write here your Java version\\
+\hline
+\end{tabular}
+\label{tab:conf}
+\end{table}
+
+
+# Empirical Results
+
+A summary of the experimental results is provided in Table \@ref(tab:data-summary) in the Appendix. 
+
+Describe the results in Figure \@ref(fig:search-tree-size) and Figure \@ref(fig:solvability).
+
+```{r load-data}
+
+# Reading the data
+rawdata = read.table(params$filename);
+# Compute basic statistics 
+m <- dim(rawdata)[1];
+n <- dim(rawdata)[2];
+even_ind <- seq(2, n, 2)
+odd_ind  <- seq(3, n, 2)
+stderr <- function(x) sd(x)/sqrt(length(x))
+dataframe <- data.frame(
+  "clues" = rawdata[,1],
+  "nodes" = apply(t(rawdata)[even_ind,], 2, mean),
+  "nodeserr" = apply(t(rawdata)[even_ind,], 2, stderr), 
+  "solvable" = apply(t(rawdata)[odd_ind,], 2, mean),
+  "solvableerr" = apply(t(rawdata)[odd_ind,], 2, stderr)
+  )
+
+# Find the range of clues that encloses 50% solvavbility
+mini <- min(which(dataframe$solvable<.5, arr.ind=TRUE))-1
+maxi <- max(which(dataframe$solvable>.5, arr.ind=TRUE))+1
+psol1 <- dataframe$clues[mini]
+psol2 <- dataframe$clues[maxi]
+
+maxnodesi <- which.max(dataframe$nodes)
+pnodes <- dataframe$clues[maxnodesi]
+
+```
+
+```{r search-tree-size, fig.cap="Number of nodes in the search tree for increasing proportion of clues (expressed relative to the size of the board)."}
+library(ggplot2)
+figure_nodes <- ggplot(data=dataframe, aes(x=clues, y=nodes)) + 
+  geom_line(colour = "blue") +
+  geom_errorbar(aes(ymin=nodes-nodeserr, ymax=nodes+nodeserr), colour="blue", width=.02) +
+  geom_point(shape=21, size=1, colour="blue",  fill="white") +
+  xlab ("fraction of pre-assigned elements") +
+  ylab ("nodes expanded") +
+  scale_x_continuous(breaks = seq(from = 0, to = 1, by = .1)) + 
+  geom_line(data=data.frame(x=c(pnodes, pnodes), y = c(-Inf, +Inf)), aes(x=x, y=y), colour = "black", 
+            linewidth = .5, linetype = "dashed") + 
+  annotate("text", x = pnodes - .01, y = 0, label = format(pnodes), hjust = "right", vjust = "top", colour = "black") + 
+  theme_bw() 
+ show(figure_nodes)
+
+```
+
+
+```{r solvability, fig.cap="Fraction of solvable instances for increasing proportion of clues (expressed relative to the size of the board)."}
+figure_solvable <- ggplot(data=dataframe, aes(x=clues, y=solvable)) + 
+  geom_line(colour = "blue") +
+  geom_errorbar(aes(ymin=solvable-solvableerr, ymax=solvable+solvableerr), colour="blue", width=.02) +
+  geom_point(shape=21, size=1, colour="blue",  fill="white") +
+  xlab ("fraction of pre-assigned elements") +
+  ylab ("solvability") +
+  geom_line(data=data.frame(x=c(-Inf, +Inf), y = c(0.5, .5)), aes(x=x, y=y), colour = "black", 
+            linewidth=.5, linetype = "dashed") + 
+  annotate("rect", xmin=psol1, xmax=psol2, ymin=-Inf, ymax=+Inf, fill='black', alpha=0.2) +
+  annotate("text", x = psol1, y = 0, label = format(psol1, digits=2), vjust = "top", hjust ="right", 
+            colour = "black") + 
+  annotate("text", x = psol2, y = 1, label = format(psol2, digits=2), vjust = "bottom", hjust = "left", 
+            colour = "black") + 
+  theme_bw() 
+ show(figure_solvable)
+
+```
+
+
+# Discussion
+
+Provide your interpretation of the results: discuss whether the results match the theoretical predictions, whether some algorithm is better in practice than others, etc.
+
+\FloatBarrier
+
+\setcounter{section}{0}
+\renewcommand{\thesection}{\Alph{section}}
+
+# Appendix
+
+## Data Summary 
+
+```{r data-summary}
+library(knitr)
+library(kableExtra)
+table_dataframe <- data.frame(
+    "clues" = dataframe$clues,
+    "nodes_mean" = format(dataframe$nodes, scientific=FALSE, digits = 1),
+    "nodes_err" = format(dataframe$nodeserr, scientific=FALSE, digits = 1),
+    "solvable_mean" = format(dataframe$solvable, scientific=FALSE, digits = 2),
+    "solvable_err" = format(dataframe$solvableerr, scientific=FALSE, digits = 2)
+  )
+kable(table_dataframe, 
+        longtable = TRUE,
+      col.names = c("clues", "nodes (mean)", "nodes (stderr)", "solv. (mean)", "solv. (stderr)"),  
+      caption = "Summary of the experimental results for different proportion of clues. The mean and standard error are provided for the number of nodes explored and the fraction of solvable instances.") %>%
+  row_spec(0,bold=TRUE) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+  
+

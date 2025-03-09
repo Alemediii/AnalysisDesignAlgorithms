@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="src" path="Lab3-ProjectAlejandroMedinaDiaz/src"/>
+	<classpathentry kind="lib" path="Lab3-ProjectAlejandroMedinaDiaz/lib/arnfolding1.6.jar"/>
+	<classpathentry kind="output" path="Lab3-ProjectAlejandroMedinaDiaz/bin"/>
+</classpath>
